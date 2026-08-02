@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell($paths = @\\(\"$env:ProgramFiles\\\\nodejs\\\\node.exe\",\"${env:ProgramFiles\\(x86\\)}\\\\nodejs\\\\node.exe\",\"$env:LOCALAPPDATA\\\\nodejs\\\\node.exe\",\"$env:APPDATA\\\\npm\\\\node.exe\",\"$env:LOCALAPPDATA\\\\Programs\\\\nodejs\\\\node.exe\"\\); foreach\\($p in $paths\\){ if\\(Test-Path $p\\){ Write-Output \"FOUND: $p\"; & $p --version } }; Write-Output \"---nvm check---\"; if\\(Test-Path \"$env:APPDATA\\\\nvm\"\\){ Get-ChildItem \"$env:APPDATA\\\\nvm\" -ErrorAction SilentlyContinue | Select-Object Name }; where.exe node 2>$null; where.exe pnpm 2>$null; where.exe yarn 2>$null)",
+      "WebFetch(domain:claude.ai)",
+      "mcp__claude-in-chrome__computer",
+      "Bash(py -3 --version)",
+      "Read(//c/Users/LEAPAF~1/AppData/Local/Temp/claude/C--Users-LEAP-Africa-Documents-research/5c422223-f74d-43fe-afa8-ce8a0adb68f2/scratchpad/**)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const m=require\\('pdf-parse'\\); console.log\\(Object.keys\\(m\\)\\); console.log\\(typeof m\\);\")",
+      "Bash(flutter --version)",
+      "Bash(dart --version)",
+      "Bash(\"C:/Program Files/nodejs/node.exe\" --version)",
+      "Bash(py --version)",
+      "Bash(\"C:/Program Files/nodejs/node.exe\" server.js)"
+    ]
+  }
+}

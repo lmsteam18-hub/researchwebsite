@@ -1,0 +1,369 @@
+// ─────────────────────────────────────────────────────────────
+// Scholiva — Prisma schema
+// Models the full domain: users, orders, services, messaging,
+// payments, reviews, coupons, referrals, CMS/blog and support.
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ──
+enum Role {
+  CLIENT
+  CONSULTANT
+  ADMIN
+}
+
+enum OrderStatus {
+  SUBMITTED
+  ASSIGNED
+  IN_PROGRESS
+  QUALITY_CHECK
+  REVISION
+  COMPLETED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentProvider {
+  PAYSTACK
+  FLUTTERWAVE
+  STRIPE
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum NotificationType {
+  ORDER
+  MESSAGE
+  PAYMENT
+  SYSTEM
+}
+
+// ── Auth (NextAuth-compatible) ──
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ── Users ──
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  role          Role      @default(CLIENT)
+  phone         String?
+  country       String?
+  institution   String?
+  twoFactorEnabled Boolean @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  // Client relations
+  orders        Order[]        @relation("ClientOrders")
+  reviews       Review[]
+  wallet        Wallet?
+  referralsMade Referral[]     @relation("Referrer")
+  referredBy    Referral?      @relation("Referred")
+
+  // Consultant relations
+  consultantProfile ConsultantProfile?
+  assignedOrders    Order[]    @relation("ConsultantOrders")
+
+  // Shared
+  messages      Message[]
+  notifications Notification[]
+  tickets       Ticket[]
+  posts         Post[]
+}
+
+model ConsultantProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  headline      String?
+  bio           String?  @db.Text
+  disciplines   String[]
+  qualifications String?
+  rating        Float    @default(0)
+  completedJobs Int      @default(0)
+  isVetted      Boolean  @default(false)
+  hourlyRateNgn Int?
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Catalog ──
+model Service {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  title       String
+  category    String
+  description String  @db.Text
+  priceFactor Float   @default(1)
+  perPage     Boolean @default(true)
+  isActive    Boolean @default(true)
+  orders      Order[]
+}
+
+// ── Orders ──
+model Order {
+  id            String      @id @default(cuid())
+  reference     String      @unique
+  status        OrderStatus @default(SUBMITTED)
+  progress      Int         @default(0) // 0–100
+
+  clientId      String
+  client        User        @relation("ClientOrders", fields: [clientId], references: [id])
+  consultantId  String?
+  consultant    User?       @relation("ConsultantOrders", fields: [consultantId], references: [id])
+
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+
+  subject       String?
+  academicLevel String
+  deadlineId    String
+  dueAt         DateTime?
+  pages         Int         @default(1)
+  wordCount     Int?
+  referenceStyle String?
+  instructions  String      @db.Text
+  additionalNotes String?   @db.Text
+
+  amountNgn     Int
+  currency      String      @default("NGN")
+
+  files         Attachment[]
+  messages      Message[]
+  invoice       Invoice?
+  payment       Payment?
+  review        Review?
+  revisions     Revision[]
+  couponId      String?
+  coupon        Coupon?     @relation(fields: [couponId], references: [id])
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([clientId])
+  @@index([consultantId])
+  @@index([status])
+}
+
+model Revision {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reason    String   @db.Text
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  filename   String
+  url        String
+  sizeBytes  Int
+  mimeType   String
+  isDeliverable Boolean @default(false) // consultant deliverable vs client upload
+  uploadedById String?
+  createdAt  DateTime @default(now())
+}
+
+// ── Messaging & notifications ──
+model Message {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id])
+  body      String   @db.Text
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM)
+  title     String
+  body      String?
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+}
+
+// ── Payments & billing ──
+model Payment {
+  id           String          @id @default(cuid())
+  orderId      String          @unique
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider     PaymentProvider
+  status       PaymentStatus   @default(PENDING)
+  amount       Int
+  currency     String          @default("NGN")
+  providerRef  String? // gateway transaction reference
+  paidAt       DateTime?
+  createdAt    DateTime        @default(now())
+}
+
+model Invoice {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  number     String   @unique
+  amount     Int
+  currency   String   @default("NGN")
+  issuedAt   DateTime @default(now())
+  dueAt      DateTime?
+  pdfUrl     String?
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balanceNgn Int     @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// ── Growth: coupons & referrals ──
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  description   String?
+  percentOff    Int? // e.g. 10 = 10%
+  amountOffNgn  Int?
+  maxRedemptions Int?
+  timesRedeemed Int      @default(0)
+  expiresAt     DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  orders        Order[]
+}
+
+model Referral {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  referrerId  String
+  referrer    User     @relation("Referrer", fields: [referrerId], references: [id])
+  referredId  String?  @unique
+  referred    User?    @relation("Referred", fields: [referredId], references: [id])
+  rewardNgn   Int      @default(0)
+  rewarded    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// ── Reviews ──
+model Review {
+  id         String   @id @default(cuid())
+  orderId    String   @unique
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  rating     Int // 1–5
+  comment    String?  @db.Text
+  isPublished Boolean @default(true)
+  createdAt  DateTime @default(now())
+}
+
+// ── CMS / Blog ──
+model Post {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  excerpt     String
+  body        String   @db.Text
+  category    String
+  coverUrl    String?
+  published   Boolean  @default(false)
+  authorId    String?
+  author      User?    @relation(fields: [authorId], references: [id])
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ── Support ──
+model Ticket {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  subject   String
+  body      String       @db.Text
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+// ── Newsletter ──
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
