@@ -4,7 +4,7 @@
 
 Scholiva is an enterprise-grade platform — think *Fiverr + Upwork + Grammarly + Scribbr*, purpose-built for academic research support. It connects clients with vetted consultants for research proposals, dissertations, data analysis, editing, formatting and publication support.
 
-> Built with Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Framer Motion, Prisma + PostgreSQL, NextAuth, Stripe / Paystack / Flutterwave, Resend, Cloudinary and AWS S3.
+> Built with Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, Framer Motion, Prisma + MongoDB, NextAuth, Stripe / Paystack / Flutterwave, Resend, Cloudinary and AWS S3.
 
 ---
 
@@ -31,7 +31,7 @@ Scholiva is an enterprise-grade platform — think *Fiverr + Upwork + Grammarly 
 
 ### Prerequisites
 - **Node.js 18.18+** (20 LTS recommended) and npm
-- A **PostgreSQL** database (local, or Neon/Supabase/Railway)
+- A **MongoDB** database (local, or [MongoDB Atlas](https://www.mongodb.com/cloud/atlas))
 
 ### 1. Install
 ```bash
@@ -42,7 +42,7 @@ npm install
 ```bash
 cp .env.example .env
 ```
-Fill in `DATABASE_URL` and `NEXTAUTH_SECRET` at minimum (generate one with `openssl rand -base64 32`). Payment/email/storage keys are optional — the app runs in **demo mode** without them.
+Fill in `DATABASE_URL` (MongoDB connection string) and `NEXTAUTH_SECRET` at minimum (generate one with `openssl rand -base64 32`). Payment/email/storage keys are optional — the app runs in **demo mode** without them.
 
 ### 3. Set up the database
 ```bash
